@@ -29,13 +29,14 @@ jobs:
           # 1. Transfer the code via rsync
           rsync -avz --exclude='.git' -e "ssh -o StrictHostKeyChecking=no" ./ $SERVER_USER@$SERVER_IP:~/notifications-api
 
-          # 2. Copy .env, setup Virtual Environment, and Start App
+          # 2. Copy .env, setup Virtual Environment, run migrations
           ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "cd ~/notifications-api && \
           cp ~/secrets/.env ~/notifications-api/.env && \
           if [ ! -d \"venv\" ]; then python3 -m venv venv; fi && \
           ./venv/bin/pip install -r requirements.txt && \
           export GOOGLE_APPLICATION_CREDENTIALS=\"/home/$SERVER_USER/secrets/firebase_key.json\" && \
           ./venv/bin/python manage.py migrate && \
-          ./venv/bin/python manage.py collectstatic --noinput && \
-          if [ -f gunicorn.pid ]; then kill \$(cat gunicorn.pid) > /dev/null 2>&1 || true; fi && \
-          ./venv/bin/gunicorn ApiCore.wsgi:application --bind 127.0.0.1:8000 --pid gunicorn.pid --daemon > /dev/null 2>&1"
+          ./venv/bin/python manage.py collectstatic --noinput"
+
+          # 3. Restart the systemd service
+          ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "sudo systemctl restart notifications-api"
